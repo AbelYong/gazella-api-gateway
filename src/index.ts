@@ -1,59 +1,52 @@
-import "dotenv/config";
 import express from "express";
-import session from "express-session";
-import * as oidc from "openid-client";
-import { globalErrorHandler } from "./handlers/error_handler.js";
-import { asyncHandler } from "./handlers/async_handler.js";
-import { exchangeTokens, startPKCE } from "./controllers/auth_controller.js";
-import { validateRequest } from "./validators/request_validator.js";
-import { pkceExchangeSchema } from "./schemas/auth_schema.js";
+import { createProxyMiddleware, Options } from 'http-proxy-middleware';
+import dotenv from "dotenv";
 
+dotenv.config();
 const app = express();
 const PORT = process.env["PORT"] || 4000;
 
-app.use(session({
-    secret: process.env["TOKEN_SIGNATURE"] || "",
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-        secure: process.env["NODE_ENV"] === "production",
-        httpOnly: true,
-        maxAge: 1000 * 60 * 60 * 24
+interface ServiceConfig {
+    target: string;
+    paths: string[];
+    rewritePrefix?: string; 
+}
+
+const services: Record<string, ServiceConfig> = {
+    identityProvider: {
+        target: process.env["AUTH_SERVICE_URL"] || "http://idp-app:3000",
+        paths: ['/oidc', '/api/auth/interaction']
     }
-}));
+};
 
-let oidcConfig: oidc.Configuration;
-
-async function initOIDC() {
-    let issuerUrlAux = process.env["IDP_ISSUER_URL"] || "http://localhost:3000/oidc"
-    const issuerUrl = new URL(issuerUrlAux);
+for (const [serviceName, config] of Object.entries(services)) {
     
-    oidcConfig = await oidc.discovery(
-        issuerUrl,
-        process.env["IDP_CLIENT_NAME"] || "",
-        process.env["IDP_CLIENT_SECRET"] || "",
-        undefined,
-        {
-            execute: [oidc.allowInsecureRequests] 
+    const proxyOptions: Options = {
+        target: config.target,
+        changeOrigin: true,
+        xfwd: true,
+        pathFilter: config.paths,
+        
+        ...(config.rewritePrefix && {
+            pathRewrite: {
+                [`^${config.rewritePrefix}`]: '', 
+            }
+        }),
+
+        on: {
+            error: (err, req, res) => {
+                console.error(`[${serviceName}] Falló la conexión en ${config.target}:`, err.message);
+                const expressRes = res as express.Response;
+                if (!expressRes.headersSent) {
+                    expressRes.status(502).json({ error: `${serviceName} Service unavailable or Bad Gateway` });
+                }
+            }
         }
-    );
-    
-    console.log("Completed OIDC provider discovery. IdP is ready to accept request.");
+    };
+
+    app.use(createProxyMiddleware(proxyOptions));
 }
 
-async function startGateway() {
-    await initOIDC();
-
-    app.get("/api/login", asyncHandler(startPKCE(oidcConfig)));
-
-    app.get("/api/callback", validateRequest(pkceExchangeSchema), asyncHandler(exchangeTokens(oidcConfig)));
-    
-    app.use(globalErrorHandler);
-
-    app.listen(PORT, () => {
-        console.log(`API Gateway listening on http://localhost:${PORT}`);
-        console.log(`To test the flow go to: http://localhost:${PORT}/api/login`);
-    });
-}
-
-await startGateway();
+app.listen(PORT, () => {
+    console.log(`Gazella API Gateway listening on http://localhost:${PORT}`);
+});
