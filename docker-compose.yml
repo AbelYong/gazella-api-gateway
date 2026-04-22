@@ -1,0 +1,18 @@
+services:
+  gazella-gateway:
+    build:
+      context: .
+    container_name: gazella_gateway
+    restart: unless-stopped
+    ports:
+      - "4000:4000"
+    environment:
+      NODE_ENV: development
+    env_file:
+      - .env
+    networks:
+      - gazella-net
+
+networks:
+  gazella-net:
+    external: true
