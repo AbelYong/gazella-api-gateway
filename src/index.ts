@@ -14,8 +14,12 @@ interface ServiceConfig {
 
 const services: Record<string, ServiceConfig> = {
     identityProvider: {
-        target: process.env["AUTH_SERVICE_URL"] || "http://idp-app:3000",
-        paths: ['/oidc', '/api/auth/interaction']
+        target: process.env["AUTH_SERVICE_URL"] || "http://localhost:3000",
+        paths: ["/oidc", "/api/auth/"]
+    },
+    accountService: {
+        target: process.env["ACCOUNT_SERVICE_URL"] || "http://localhost:5000",
+        paths: ["/accounts", "/socials", ]
     }
 };
 
@@ -35,7 +39,7 @@ for (const [serviceName, config] of Object.entries(services)) {
 
         on: {
             error: (err, req, res) => {
-                console.error(`[${serviceName}] Falló la conexión en ${config.target}:`, err.message);
+                console.error(`[${serviceName}] Failed to connect at: ${config.target}:`, err.message);
                 const expressRes = res as express.Response;
                 if (!expressRes.headersSent) {
                     expressRes.status(502).json({ error: `${serviceName} Service unavailable or Bad Gateway` });
