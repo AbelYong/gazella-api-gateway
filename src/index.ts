@@ -20,6 +20,11 @@ const services: Record<string, ServiceConfig> = {
     accountService: {
         target: process.env["ACCOUNT_SERVICE_URL"] || "http://localhost:5000",
         paths: ["/accounts", "/socials", ]
+    },
+    articleService: {
+        target: process.env["ARTICLE_SERVICE_URL"] || "http://localhost:7000",
+        paths: ["/articles/categories", "/articles/drafts"],
+        rewritePrefix: "/articles"
     }
 };
 
@@ -38,7 +43,7 @@ for (const [serviceName, config] of Object.entries(services)) {
         }),
 
         on: {
-            error: (err, req, res) => {
+            error: (err, _req, res) => {
                 console.error(`[${serviceName}] Failed to connect at: ${config.target}:`, err.message);
                 const expressRes = res as express.Response;
                 if (!expressRes.headersSent) {
