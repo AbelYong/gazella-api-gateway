@@ -23,7 +23,7 @@ const services: Record<string, ServiceConfig> = {
     },
     articleService: {
         target: process.env["ARTICLE_SERVICE_URL"] || "http://localhost:7000",
-        paths: ["/articles/categories", "/articles/drafts"],
+        paths: ["/articles/categories", "/articles/drafts", "/articles/my-articles"],
         rewritePrefix: "/articles"
     }
 };
