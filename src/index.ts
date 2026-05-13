@@ -4,6 +4,8 @@ import dotenv from "dotenv";
 
 dotenv.config();
 const app = express();
+app.disable("x-powered-by");
+
 const PORT = process.env["PORT"] || 4000;
 
 interface ServiceConfig {
@@ -23,7 +25,13 @@ const services: Record<string, ServiceConfig> = {
     },
     articleService: {
         target: process.env["ARTICLE_SERVICE_URL"] || "http://localhost:7000",
-        paths: ["/articles/categories", "/articles/drafts", "/articles/my-articles"],
+        paths: [
+            "/articles/categories",
+            "/articles/drafts",
+            "/articles/my-articles",
+            "/articles/to-review-articles",
+            "/articles/reviews"
+        ],
         rewritePrefix: "/articles"
     }
 };
