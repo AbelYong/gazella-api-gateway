@@ -34,6 +34,10 @@ const services: Record<string, ServiceConfig> = {
             "/articles/reviews"
         ],
         rewritePrefix: "/articles"
+    },
+    mediaService: {
+        target: process.env["MEDIA_SERVICE_URL"] || "http://localhost:8000",
+        paths: ["/media"]
     }
 };
 
