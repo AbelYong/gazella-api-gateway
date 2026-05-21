@@ -33,7 +33,8 @@ const services: Record<string, ServiceConfig> = {
             "/articles/to-review-articles",
             "/articles/reviews",
             "/articles/comments",
-            "/articles/likes"
+            "/articles/likes",
+            "/articles/search"
         ],
         rewritePrefix: "/articles"
     },
