@@ -41,7 +41,11 @@ const services: Record<string, ServiceConfig> = {
     },
     projectService: {
         target: process.env["PROJECT_SERVICE_URL"] || "http://project-service:7100",
-        paths: ["/projects"] 
+        paths: [
+            "/projects",
+            "/my-projects",
+            "/my-enrollments"
+        ]
     },
     mediaService: {
         target: process.env["MEDIA_SERVICE_URL"] || "http://localhost:8000",
