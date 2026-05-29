@@ -1,12 +1,19 @@
 import express from "express";
-import { createProxyMiddleware, Options } from 'http-proxy-middleware';
+import { createProxyMiddleware, Options, responseInterceptor } from 'http-proxy-middleware';
 import dotenv from "dotenv";
+import cors from "cors";
 
 dotenv.config();
 const app = express();
 app.disable("x-powered-by");
 
 const PORT = process.env["PORT"] || 4000;
+
+app.use(cors({
+    origin: ['http://localhost:5173', 'http://localhost:4173', 'file://', 'devtools://'], 
+    credentials: true,
+    methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS']
+}));
 
 interface ServiceConfig {
     target: string;
@@ -46,7 +53,6 @@ const services: Record<string, ServiceConfig> = {
 };
 
 for (const [serviceName, config] of Object.entries(services)) {
-    
     const proxyOptions: Options = {
         target: config.target,
         changeOrigin: true,
@@ -57,18 +63,73 @@ for (const [serviceName, config] of Object.entries(services)) {
             pathRewrite: {
                 [`^${config.rewritePrefix}`]: '', 
             }
-        }),
+        })
+    };
 
-        on: {
-            error: (err, _req, res) => {
-                console.error(`[${serviceName}] Failed to connect at: ${config.target}:`, err.message);
-                const expressRes = res as express.Response;
-                if (!expressRes.headersSent) {
-                    expressRes.status(502).json({ error: `${serviceName} Service unavailable or Bad Gateway` });
+    if (serviceName === 'identityProvider') {
+        proxyOptions.selfHandleResponse = true;
+
+        proxyOptions.on = {
+            proxyRes: responseInterceptor(async (responseBuffer, proxyRes, _req, res) => {
+                const locHeader = proxyRes.headers.location;
+                const location = Array.isArray(locHeader) ? locHeader[0] : locHeader;
+
+                Object.entries(proxyRes.headers).forEach(([key, value]) => {
+                    if (value !== undefined) {
+                        res.setHeader(key, value);
+                    }
+                });
+
+                const cookies = proxyRes.headers['set-cookie'];
+                if (cookies) {
+                    const rewrittenCookies = cookies.map(cookie => {
+                        let newCookie = cookie.replace(/SameSite=(Lax|Strict)/i, 'SameSite=None');
+                        if (!newCookie.toLowerCase().includes('secure')) {
+                            newCookie += '; Secure';
+                        }
+                        return newCookie;
+                    });
+                    res.setHeader('set-cookie', rewrittenCookies);
+                }
+
+                if (proxyRes.statusCode === 302 || proxyRes.statusCode === 303) {
+                    if (location) {
+                        if (location.startsWith('com.gazella.client://')) {
+                            res.statusCode = 200;
+                            res.setHeader('Content-Type', 'application/json');
+                            res.removeHeader('location');
+                            
+                            return Buffer.from(JSON.stringify({ customRedirectUrl: location }));
+                        }
+
+                        const gatewayUrl = `http://localhost:${PORT}`;
+                        if (location.startsWith(gatewayUrl)) {
+                            res.setHeader('location', location.replace(gatewayUrl, ''));
+                        }
+                    }
+                }
+
+                res.statusCode = proxyRes.statusCode || 200;
+                return responseBuffer;
+            }) as any
+        };
+    } else {
+        proxyOptions.on = {
+            proxyRes: (proxyRes, _req, res) => {
+                const cookies = proxyRes.headers['set-cookie'];
+                if (cookies) {
+                    const rewrittenCookies = cookies.map(cookie => {
+                        let newCookie = cookie.replace(/SameSite=(Lax|Strict)/i, 'SameSite=None');
+                        if (!newCookie.toLowerCase().includes('secure')) {
+                            newCookie += '; Secure';
+                        }
+                        return newCookie;
+                    });
+                    res.setHeader('set-cookie', rewrittenCookies);
                 }
             }
-        }
-    };
+        };
+    }
 
     app.use(createProxyMiddleware(proxyOptions));
 }
