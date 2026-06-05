@@ -8,6 +8,7 @@ const app = express();
 app.disable("x-powered-by");
 
 const PORT = process.env["PORT"] || 4000;
+const HOST = process.env["HOST"] || "localhost";
 
 app.use(cors({
     origin: ['http://localhost:5173', 'http://localhost:4173', 'file://', 'devtools://'], 
@@ -110,7 +111,7 @@ for (const [serviceName, config] of Object.entries(services)) {
                             return Buffer.from(JSON.stringify({ customRedirectUrl: location }));
                         }
 
-                        const gatewayUrl = `http://localhost:${PORT}`;
+                        const gatewayUrl = `http://${HOST}:${PORT}`;
                         if (location.startsWith(gatewayUrl)) {
                             res.setHeader('location', location.replace(gatewayUrl, ''));
                         }
@@ -143,5 +144,5 @@ for (const [serviceName, config] of Object.entries(services)) {
 }
 
 app.listen(PORT, () => {
-    console.log(`Gazella API Gateway listening on http://localhost:${PORT}`);
+    console.log(`Gazella API Gateway listening on http://${HOST}:${PORT}`);
 });

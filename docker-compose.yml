@@ -6,12 +6,27 @@ services:
     restart: unless-stopped
     ports:
       - "4000:4000"
+    expose:
+      - "4000"
     environment:
       NODE_ENV: development
     env_file:
       - .env
     networks:
       - gazella-net
+  
+  nginx:
+    image: nginx:alpine
+    container_name: gazella_nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    networks:
+      - gazella-net
+    depends_on:
+      - gazella-gateway
 
 networks:
   gazella-net:
