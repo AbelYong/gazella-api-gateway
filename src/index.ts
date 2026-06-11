@@ -9,6 +9,21 @@ app.disable("x-powered-by");
 
 const PORT = process.env["PORT"] || 4000;
 const HOST = process.env["HOST"] || "localhost";
+const useSecureCookies = process.env["COOKIE_SECURE"] === "true";
+
+function rewriteCookie(cookie: string): string {
+    if (useSecureCookies) {
+        let rewritten = cookie.replace(/SameSite=(Lax|Strict)/i, "SameSite=None");
+        if (!/;\s*Secure/i.test(rewritten)) {
+            rewritten += "; Secure";
+        }
+        return rewritten;
+    }
+
+    return cookie
+        .replace(/;\s*Secure/ig, "")
+        .replace(/SameSite=None/i, "SameSite=Lax");
+}
 
 app.use(cors({
     origin: ['http://localhost:5173', 'http://localhost:4173', 'file://', 'devtools://'], 
@@ -91,13 +106,7 @@ for (const [serviceName, config] of Object.entries(services)) {
 
                 const cookies = proxyRes.headers['set-cookie'];
                 if (cookies) {
-                    const rewrittenCookies = cookies.map(cookie => {
-                        let newCookie = cookie.replace(/SameSite=(Lax|Strict)/i, 'SameSite=None');
-                        if (!newCookie.toLowerCase().includes('secure')) {
-                            newCookie += '; Secure';
-                        }
-                        return newCookie;
-                    });
+                    const rewrittenCookies = cookies.map(rewriteCookie);
                     res.setHeader('set-cookie', rewrittenCookies);
                 }
 
@@ -127,13 +136,7 @@ for (const [serviceName, config] of Object.entries(services)) {
             proxyRes: (proxyRes, _req, res) => {
                 const cookies = proxyRes.headers['set-cookie'];
                 if (cookies) {
-                    const rewrittenCookies = cookies.map(cookie => {
-                        let newCookie = cookie.replace(/SameSite=(Lax|Strict)/i, 'SameSite=None');
-                        if (!newCookie.toLowerCase().includes('secure')) {
-                            newCookie += '; Secure';
-                        }
-                        return newCookie;
-                    });
+                    const rewrittenCookies = cookies.map(rewriteCookie);
                     res.setHeader('set-cookie', rewrittenCookies);
                 }
             }
